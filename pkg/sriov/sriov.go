@@ -48,7 +48,7 @@ func (p *pciUtilsImpl) EnableArpAndNdiscNotify(ifName string) error {
 // Manager provides interface invoke sriov nic related operations
 type Manager interface {
 	SetupVF(conf *evpngwtypes.NetConf, podifName string, netns ns.NetNS) (string, error)
-	ReleaseVF(conf *evpngwtypes.NetConf, netns ns.NetNS, netNSPath string) error
+	ReleaseVF(containerId string, conf *evpngwtypes.NetConf, netns ns.NetNS, netNSPath string) error
 	ResetVFConfig(conf *evpngwtypes.NetConf) error
 	ResetVF(conf *evpngwtypes.NetConf) error
 	ApplyVFConfig(conf *evpngwtypes.NetConf) error
@@ -157,13 +157,26 @@ func (s *sriovManager) SetupVF(conf *evpngwtypes.NetConf, podifName string, netn
 }
 
 // ReleaseVF reset a VF from Pod netns and return it to init netns
-func (s *sriovManager) ReleaseVF(conf *evpngwtypes.NetConf, netns ns.NetNS, netNSPath string) error {
+func (s *sriovManager) ReleaseVF(containerId string, conf *evpngwtypes.NetConf, netns ns.NetNS, netNSPath string) error {
 	ctx := context.Background()
 
 	initns, err := ns.GetCurrentNS()
 	if err != nil {
 		return fmt.Errorf("ReleaseVF(): failed to get init netns: %v", err)
 	}
+
+	/*fmt.Println("ENA")
+        fmt.Println(containerId)
+        fmt.Println("DUP")*/
+
+	mapping, err := utils.GetContainerPid(ctx, conf.RuntimeEndpoint, containerId)
+	if err != nil {
+		return fmt.Errorf("ReleaseVF(): failed to get pid from container id %s : %v", containerId, err)
+	}
+
+	fmt.Println("TRIA")
+	fmt.Println(mapping)
+	fmt.Println("TESSERA")
 
 	// get VF netdevice from PCI that is attached to container. This is executed on the host namespace accessing
 	// the containers filesystem through the /proc/<PID> path on the host.

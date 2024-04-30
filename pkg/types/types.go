@@ -50,6 +50,7 @@ type NetConf struct {
 	Trust             string `json:"trust,omitempty"`      // on|off (XPU Not supported)
 	LinkState         string `json:"link_state,omitempty"` // auto|enable|disable (XPU Not supported)
 	OpiEvpnBridgeConn string `json:"opi_evpn_bridge_conn"` // the IP and port where the opi_evpn_bridge listens. Format "IP:Port"
+	RuntimeEndpoint   string `json:"runtime_endpoint"`     // the container runtime endpoint. Format "unix:///run/containerd/containerd.sock"
 	ConfigurationPath string `json:"configuration_path"`   // Configuration path for evpn-gw-cni conf files
 	PciToMacPath      string `json:"pci_to_mac_path"`      // The Path where we keep the mapping of PCI addresses to MAC addresses for the xPU VFs
 	RuntimeConfig     struct {

@@ -8,6 +8,7 @@ package utils
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,6 +20,9 @@ import (
 	"time"
 
 	utilfs "github.com/k8snetworkplumbingwg/sriovnet/pkg/utils/filesystem"
+	"go.opentelemetry.io/otel/trace/noop"
+	internalapi "k8s.io/cri-api/pkg/apis"
+	"k8s.io/kubernetes/pkg/kubelet/cri/remote"
 )
 
 var (
@@ -34,7 +38,8 @@ var (
 	// SysV6NdiscNotify is the sysfs IPv6 Neighbor Discovery Notify directory
 	SysV6NdiscNotify = "/proc/sys/net/ipv6/conf/"
 	// UserspaceDrivers is a list of driver names that don't have netlink representation for their devices
-	UserspaceDrivers = []string{"vfio-pci", "uio_pci_generic", "igb_uio"}
+	UserspaceDrivers        = []string{"vfio-pci", "uio_pci_generic", "igb_uio"}
+	defaultRuntimeEndpoints = []string{"unix:///run/containerd/containerd.sock", "unix:///run/crio/crio.sock", "unix:///var/run/cri-dockerd.sock"}
 )
 
 // EnableArpAndNdiscNotify enables IPv4 arp_notify and IPv6 ndisc_notify for netdev
@@ -416,4 +421,41 @@ func getFileNamesFromPath(dir string) ([]string, error) {
 		netDevices = append(netDevices, strings.TrimSpace(netDeviceFile.Name()))
 	}
 	return netDevices, nil
+}
+
+func getRuntimeService(runtimeEndpoint string) (internalapi.RuntimeService, error) {
+	var res internalapi.RuntimeService
+	var err error
+
+	tp := noop.NewTracerProvider()
+	t := 2 * time.Second
+
+	if runtimeEndpoint == "" {
+		for _, endPoint := range defaultRuntimeEndpoints {
+			res, err = remote.NewRemoteRuntimeService(endPoint, t, tp)
+			if err != nil {
+				continue
+			}
+			break
+		}
+		return res, err
+	}
+	return remote.NewRemoteRuntimeService(runtimeEndpoint, t, tp)
+}
+
+// GetContainerPid gets pid of container from container id
+func GetContainerPid(ctx context.Context, runtimeEndpoint string, containerId string) (map[string]string, error) {
+
+	client, err := getRuntimeService(runtimeEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("could not initialize container runtime client: %v", err)
+	}
+
+	res, err := client.PodSandboxStatus(ctx, containerId, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get ContainerStatus from runtime: %v", err)
+	}
+
+	return res.GetInfo(), nil
+
 }
